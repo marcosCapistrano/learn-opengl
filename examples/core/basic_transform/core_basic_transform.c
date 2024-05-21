@@ -53,8 +53,8 @@ int main()
         return 1;
     }
 
-    void *vertexShaderSource = SDL_LoadFile("./resources/shaders/core_basic_transform.vert", NULL);
-    void *fragmentShaderSource = SDL_LoadFile("./resources/shaders/core_basic_transform.frag", NULL);
+    void *vertexShaderSource = SDL_LoadFile("./shaders/core_basic_transform.vert", NULL);
+    void *fragmentShaderSource = SDL_LoadFile("./shaders/core_basic_transform.frag", NULL);
 
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, (const char **)&vertexShaderSource, NULL);
