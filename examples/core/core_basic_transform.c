@@ -48,16 +48,13 @@ int init()
 
 int main()
 {
-    if(init() != 0)
+    if (init() != 0)
     {
         return 1;
     }
 
-    vec3 vec = {0, 0, 0};
-    glm_vec3_normalize(vec);
-
-    void *vertexShaderSource = SDL_LoadFile("./resources/shaders/core_basic_triangle.vert", NULL);
-    void *fragmentShaderSource = SDL_LoadFile("./resources/shaders/core_basic_triangle.frag", NULL);
+    void *vertexShaderSource = SDL_LoadFile("./resources/shaders/core_basic_transform.vert", NULL);
+    void *fragmentShaderSource = SDL_LoadFile("./resources/shaders/core_basic_transform.frag", NULL);
 
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, (const char **)&vertexShaderSource, NULL);
@@ -111,8 +108,8 @@ int main()
     float vertices[] = {
         // first triangle
         -0.5f, -0.5f, 0.0f, // left
-        0.5f, -0.5f, 0.0f, // right
-        0.0f, 0.5f, 0.0f, // top
+        0.5f, -0.5f, 0.0f,  // right
+        0.0f, 0.5f, 0.0f,   // top
     };
 
     unsigned int VBO, VAO;
@@ -133,6 +130,11 @@ int main()
     // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     glBindVertexArray(0);
+
+    unsigned int transformLoc = glGetUniformLocation(shaderProgram, "transform");
+    mat4 trans;
+    glm_mat4_identity(trans);
+    glm_rotate(trans, glm_rad(SDL_GetTicks64() / 1000.0f), (vec3){0.0f, 0.0f, 1.0f});
 
     while (isRunning)
     {
@@ -161,11 +163,13 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        SDL_Log("here");
-
         // draw our first triangle
         glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);           // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+        glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+        glm_mat4_identity(trans);
+        glm_rotate(trans, glm_rad(SDL_GetTicks64() / 50.0f), (vec3){0.0f, 1.0f, 1.0f});
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, (float *)trans);
         glDrawArrays(GL_TRIANGLES, 0, 6); // set the count to 6 since we're drawing 6 vertices now (2 triangles); not 3!
         // glBindVertexArray(0); // no need to unbind it every time
 
