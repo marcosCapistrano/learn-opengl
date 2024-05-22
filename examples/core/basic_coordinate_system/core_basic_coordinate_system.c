@@ -54,6 +54,7 @@ int main()
         return 1;
     }
 
+    glEnable(GL_DEPTH_TEST);
 
     void *vertexShaderSource = SDL_LoadFile("./shaders/core_basic_transform.vert", NULL);
     void *fragmentShaderSource = SDL_LoadFile("./shaders/core_basic_transform.frag", NULL);
@@ -151,16 +152,16 @@ int main()
 
     // world space positions of our cubes
     vec3 cubePositions[10] = {
-        *(vec3){0.0f, 0.0f, 0.0f},
-        *(vec3){2.0f, 5.0f, -15.0f},
-        *(vec3){-1.5f, -2.2f, -2.5f},
-        *(vec3){-3.8f, -2.0f, -12.3f},
-        *(vec3){2.4f, -0.4f, -3.5f},
-        *(vec3){-1.7f, 3.0f, -7.5f},
-        *(vec3){1.3f, -2.0f, -2.5f},
-        *(vec3){1.5f, 2.0f, -2.5f},
-        *(vec3){1.5f, 0.2f, -1.5f},
-        *(vec3){-1.3f, 1.0f, -1.5f}};
+        {0.0f, 0.0f, 0.0f},
+        {2.0f, 5.0f, -15.0f},
+        {-1.5f, -2.2f, -2.5f},
+        {-3.8f, -2.0f, -12.3f},
+        {2.4f, -0.4f, -3.5f},
+        {-1.7f, 3.0f, -7.5f},
+        {1.3f, -2.0f, -2.5f},
+        {1.5f, 2.0f, -2.5f},
+        {1.5f, 0.2f, -1.5f},
+        {-1.3f, 1.0f, -1.5f}};
 
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -201,7 +202,7 @@ int main()
 
     if (surface)
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, surface->w, surface->h, 0, GL_RGB, GL_UNSIGNED_BYTE, surface->pixels);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
 
@@ -230,7 +231,7 @@ int main()
         }
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // draw our first triangle
         glUseProgram(shaderProgram);
@@ -259,7 +260,7 @@ int main()
 
             glm_translate(model, cubePositions[i]);
 
-            float angle = 20.0f * i;
+            float angle = 20.0f * i + 20.0f;
 
             glm_rotate(model, glm_rad(angle), (vec3){1.0f, 0.3f, 0.5f});
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (float *)model);
