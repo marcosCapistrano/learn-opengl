@@ -153,15 +153,15 @@ int main()
     // world space positions of our cubes
     vec3 cubePositions[10] = {
         {0.0f, 0.0f, 0.0f},
-        {3.0f, 5.0f, -15.0f},
-        {-3.5f, -2.2f, -2.5f},
-        {-4.8f, -2.0f, -12.3f},
-        {4.4f, -0.4f, -3.5f},
-        {-3.7f, 3.0f, -7.5f},
-        {3.3f, -2.0f, -2.5f},
-        {3.5f, 2.0f, -2.5f},
-        {3.5f, 0.2f, -1.5f},
-        {-3.3f, 1.0f, -1.5f}};
+        {2.0f, 5.0f, -15.0f},
+        {-1.5f, -2.2f, -2.5f},
+        {-3.8f, -2.0f, -12.3f},
+        {2.4f, -0.4f, -3.5f},
+        {-1.7f, 3.0f, -7.5f},
+        {1.3f, -2.0f, -2.5f},
+        {1.5f, 2.0f, -2.5f},
+        {1.5f, 0.2f, -1.5f},
+        {-1.3f, 1.0f, -1.5f}};
 
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -247,7 +247,7 @@ int main()
         glm_mat4_identity(projection);
 
         glm_perspective(glm_rad(45.0f), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1f, 100.0f, projection);
-        glm_translate(view, (vec3){0.0f, 0.0f, -2.0f});
+        glm_lookat((vec3){0.0f, 0.0f, 1.0f}, (vec3){0.0f, 0.0f, 0.0f}, (vec3){0.0f, 1.0f, 0.0f}, view);
 
         glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (float *)projection);
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (float *)view);
@@ -262,7 +262,11 @@ int main()
 
             float angle = 20.0f * i + 20.0f;
 
-            glm_translate(view, (vec3){0.0f, 0.0f, -(SDL_GetTicks64() / 8000.0f)});
+            const float radius = 10.0f;
+            float camX = sin(SDL_GetTicks64() / 1000.0f) * radius;
+            float camZ = cos(SDL_GetTicks64() / 1000.0f) * radius;
+
+            glm_lookat((vec3){camX, 0.0f, camZ}, (vec3){0.0f, 0.0f, 0.0f}, (vec3){0.0f, 1.0f, 0.0f}, view);
             glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (float *)view);
 
             glm_rotate(model, glm_rad(angle + (SDL_GetTicks64() / 100.0f) * i), (vec3){1.0f, 0.3f, 0.5f});
