@@ -8,8 +8,25 @@
 
 bool isRunning = false;
 static SDL_Window *window;
-static SDL_Renderer *renderer;
 static SDL_GLContext *context;
+
+typedef struct Material
+{
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+
+    float shininess;
+} Material;
+
+typedef struct Light
+{
+    vec3 position;
+
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+} Light;
 
 int init()
 {
@@ -44,6 +61,8 @@ int init()
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     isRunning = true;
+
+    return 0;
 }
 
 int main()
@@ -132,9 +151,6 @@ int main()
     SDL_free(fragmentShaderSource);
     SDL_free(lightFragmentShaderSource);
 
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
-    // add a new set of vertices to form a second triangle (a total of 6 vertices); the vertex attribute configuration remains the same (still one 3-float position vector per vertex)
     float vertices[] = {
         -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
         0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
@@ -205,7 +221,18 @@ int main()
     glBindVertexArray(0);
 
     // Preparation for the shaders
-    vec3 lightPos = {0.0f, 0.0f, 0.0f};
+    Material material = {
+        {0.1745f, 0.01175f, 0.01175f},
+        {0.61424f, 0.04136f, 0.04136f},
+        {0.727811f, 0.626959f, 0.626959f},
+        76.8f};
+
+    Light light = {
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f}};
+
     vec3 viewPos = {-5.0f, 2.0f, -5.0f};
 
     mat4 projection;
@@ -220,14 +247,28 @@ int main()
     glUseProgram(shaderProgram);
 
     // Lighting Uniforms
-    unsigned int objColorLoc = glGetUniformLocation(shaderProgram, "objectColor");
-    unsigned int lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
-    unsigned int lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
+    unsigned int matAmbientLoc = glGetUniformLocation(shaderProgram, "material.ambient");
+    unsigned int matDiffuseLoc = glGetUniformLocation(shaderProgram, "material.diffuse");
+    unsigned int matSpecularLoc = glGetUniformLocation(shaderProgram, "material.specular");
+    unsigned int matShininessLoc = glGetUniformLocation(shaderProgram, "material.shininess");
+
+    unsigned int lightPosLoc = glGetUniformLocation(shaderProgram, "light.position");
+    unsigned int lightAmbientLoc = glGetUniformLocation(shaderProgram, "light.ambient");
+    unsigned int lightDiffuseLoc = glGetUniformLocation(shaderProgram, "light.diffuse");
+    unsigned int lightSpecularLoc = glGetUniformLocation(shaderProgram, "light.specular");
+
     unsigned int viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 
-    glUniform3fv(objColorLoc, 1, (vec3){1.0f, 0.5f, 0.31f});
-    glUniform3fv(lightColorLoc, 1, (vec3){1.0f, 0.0f, 0.0f});
-    glUniform3fv(lightPosLoc, 1, lightPos);
+    glUniform3fv(matAmbientLoc, 1, material.ambient);
+    glUniform3fv(matDiffuseLoc, 1, material.diffuse);
+    glUniform3fv(matSpecularLoc, 1, material.specular);
+    glUniform1f(matShininessLoc, material.shininess);
+
+    glUniform3fv(lightPosLoc, 1, light.position);
+    glUniform3fv(lightAmbientLoc, 1, light.ambient);
+    glUniform3fv(lightDiffuseLoc, 1, light.diffuse);
+    glUniform3fv(lightSpecularLoc, 1, light.specular);
+
     glUniform3fv(viewPosLoc, 1, viewPos);
     // ------------------------------------------------------------
 
@@ -256,7 +297,7 @@ int main()
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (float *)view);
 
     glm_mat4_identity(model);
-    glm_translate(model, lightPos);
+    glm_translate(model, light.position);
     glm_scale(model, (vec3){0.2f, 0.2f, 0.2f});
 
     modelLoc = glGetUniformLocation(shaderProgram, "model");
@@ -308,8 +349,8 @@ int main()
 
         int mod = 1;
         int arrayLen;
-        Uint8 *keyStates = SDL_GetKeyboardState(&arrayLen);
-        if(keyStates[SDL_SCANCODE_SPACE])
+        const Uint8 *keyStates = SDL_GetKeyboardState(&arrayLen);
+        if (keyStates[SDL_SCANCODE_SPACE])
         {
             mod = 3;
         }
@@ -320,33 +361,34 @@ int main()
         else if (keyStates[SDL_SCANCODE_RIGHT])
         {
             lightRotationH += 0.01 * mod;
-        } 
-        
-        if(keyStates[SDL_SCANCODE_UP])
+        }
+
+        if (keyStates[SDL_SCANCODE_UP])
         {
             lightRotationV += 0.01 * mod;
-        } else if(keyStates[SDL_SCANCODE_DOWN])
+        }
+        else if (keyStates[SDL_SCANCODE_DOWN])
         {
             lightRotationV -= 0.01 * mod;
         }
 
-        const float radiusH = 1.0f;
-        const float radiusV = 1.0f;
+        const float radiusH = 3.0f;
+        const float radiusV = 3.0f;
         float lightX = sin(lightRotationH) * radiusH;
         float lightY = sin(lightRotationV) * radiusV;
         float lightZ = cos(lightRotationH) * radiusH;
 
-        lightPos[0] = lightX;
-        lightPos[1] = lightY;
-        lightPos[2] = lightZ;
+        light.position[0] = lightX;
+        light.position[1] = lightY;
+        light.position[2] = lightZ;
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
 
-        unsigned int lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
-        glUniform3fv(lightPosLoc, 1, lightPos);
+        unsigned int lightPosLoc = glGetUniformLocation(shaderProgram, "light.position");
+        glUniform3fv(lightPosLoc, 1, light.position);
 
         glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -355,7 +397,7 @@ int main()
         glUseProgram(lightShaderProgram);
 
         glm_mat4_identity(model);
-        glm_translate(model, lightPos);
+        glm_translate(model, light.position);
         glm_scale(model, (vec3){0.2f, 0.2f, 0.2f});
 
         modelLoc = glGetUniformLocation(shaderProgram, "model");
