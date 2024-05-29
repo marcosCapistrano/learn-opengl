@@ -3,14 +3,14 @@
 
 int main()
 {
-    FILE *objFile = fopen("./resources/landscape.obj", "r");
+    FILE *objFile = fopen("./resources/blendercube.obj", "r");
     if (!objFile)
     {
         perror("fopen failed");
         return 1;
     }
 
-    FILE *mtlFile = fopen("./resources/landscape.obj", "r");
+    FILE *mtlFile = fopen("./resources/blendercube.mtl", "r");
     if (!mtlFile)
     {
         perror("fopen failed");
