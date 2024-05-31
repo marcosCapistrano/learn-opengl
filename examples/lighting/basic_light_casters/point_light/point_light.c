@@ -23,6 +23,10 @@ typedef struct Light
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
+
+    float constant;
+    float linear;
+    float quadratic;
 } Light;
 
 int init()
@@ -192,6 +196,19 @@ int main()
         -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
         -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f};
 
+    // world space positions of our cubes
+    vec3 cubePositions[10] = {
+        {0.0f, 0.0f, 0.0f},
+        {3.0f, 5.0f, -15.0f},
+        {-3.5f, -2.2f, -2.5f},
+        {-4.8f, -2.0f, -12.3f},
+        {4.4f, -0.4f, -3.5f},
+        {-3.7f, 3.0f, -7.5f},
+        {3.3f, -2.0f, -2.5f},
+        {3.5f, 2.0f, -2.5f},
+        {3.5f, 0.2f, -1.5f},
+        {-3.3f, 1.0f, -1.5f}};
+
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -278,7 +295,9 @@ int main()
         {0.2f, 0.2f, 0.2f},
         {0.5f, 0.5f, 0.5f},
         {1.0f, 1.0f, 1.0f},
-    };
+        1.0f,
+        0.09f,
+        0.032f};
 
     vec3 viewPos = {-5.0f, 2.0f, -5.0f};
 
@@ -301,6 +320,10 @@ int main()
     unsigned int lightDiffuseLoc = glGetUniformLocation(shaderProgram, "light.diffuse");
     unsigned int lightSpecularLoc = glGetUniformLocation(shaderProgram, "light.specular");
 
+    unsigned int lightConstantLoc = glGetUniformLocation(shaderProgram, "light.constant");
+    unsigned int lightLinearLoc = glGetUniformLocation(shaderProgram, "light.linear");
+    unsigned int lightQuadraticLoc = glGetUniformLocation(shaderProgram, "light.quadratic");
+
     unsigned int viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 
     glUniform1f(matShininessLoc, material.shininess);
@@ -309,6 +332,10 @@ int main()
     glUniform3fv(lightAmbientLoc, 1, light.ambient);
     glUniform3fv(lightDiffuseLoc, 1, light.diffuse);
     glUniform3fv(lightSpecularLoc, 1, light.specular);
+
+    glUniform1f(lightConstantLoc, light.constant);
+    glUniform1f(lightLinearLoc, light.linear);
+    glUniform1f(lightQuadraticLoc, light.quadratic);
 
     glUniform3fv(viewPosLoc, 1, viewPos);
     // ------------------------------------------------------------
@@ -432,7 +459,22 @@ int main()
         glUniform3fv(lightPosLoc, 1, light.position);
 
         glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        for (unsigned int i = 0; i < 10; i++)
+        {
+            // calculate the model matrix for each object and pass it to shader before drawing
+            mat4 model;
+            glm_mat4_identity(model);
+
+            glm_translate(model, cubePositions[i]);
+
+            float angle = 20.0f * i + 20.0f;
+
+            glm_rotate(model, glm_rad(angle + (SDL_GetTicks64() / 100.0f) * (i + 1)), (vec3){1.0f, 0.3f, 0.5f});
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (float *)model);
+
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
         // draw our first triangle
         glUseProgram(lightShaderProgram);

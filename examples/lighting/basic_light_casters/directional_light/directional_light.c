@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <GL/glew.h>
+
 #include "cglm/cglm.h"
 
 #define WINDOW_WIDTH 1280
@@ -18,7 +19,7 @@ typedef struct Material
 
 typedef struct Light
 {
-    vec3 position;
+    vec3 direction;
 
     vec3 ambient;
     vec3 diffuse;
@@ -71,7 +72,6 @@ int main()
 
     void *vertexShaderSource = SDL_LoadFile("./shaders/common.vert", NULL);
     void *fragmentShaderSource = SDL_LoadFile("./shaders/objects.frag", NULL);
-    void *lightFragmentShaderSource = SDL_LoadFile("./shaders/light.frag", NULL);
 
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, (const char **)&vertexShaderSource, NULL);
@@ -113,40 +113,11 @@ int main()
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         SDL_Log("Shader program (object) linking failed: %s\n", infoLog);
     }
-    glDeleteShader(fragmentShader);
-
-    // fragment shader
-    unsigned int lightFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(lightFragmentShader, 1, (const char **)&lightFragmentShaderSource, NULL);
-    glCompileShader(lightFragmentShader);
-
-    // check for shader compile errors
-    glGetShaderiv(lightFragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(lightFragmentShader, 512, NULL, infoLog);
-        SDL_Log("Frag shader (light) compile error: %s\n", infoLog);
-    }
-
-    // link shaders
-    GLuint lightShaderProgram = glCreateProgram();
-    glAttachShader(lightShaderProgram, vertexShader);
-    glAttachShader(lightShaderProgram, lightFragmentShader);
-    glLinkProgram(lightShaderProgram);
-
-    // check for linking errors
-    glGetProgramiv(lightShaderProgram, GL_LINK_STATUS, &success);
-    if (!success)
-    {
-        glGetProgramInfoLog(lightShaderProgram, 512, NULL, infoLog);
-        SDL_Log("Shader program (light) linking failed: %s\n", infoLog);
-    }
     glDeleteShader(vertexShader);
-    glDeleteShader(lightFragmentShader);
+    glDeleteShader(fragmentShader);
 
     SDL_free(vertexShaderSource);
     SDL_free(fragmentShaderSource);
-    SDL_free(lightFragmentShaderSource);
 
     float vertices[] = {
         // positions          // normals           // texture coords
@@ -192,6 +163,19 @@ int main()
         -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
         -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f};
 
+    // world space positions of our cubes
+    vec3 cubePositions[10] = {
+        {0.0f, 0.0f, 0.0f},
+        {3.0f, 5.0f, -15.0f},
+        {-3.5f, -2.2f, -2.5f},
+        {-4.8f, -2.0f, -12.3f},
+        {4.4f, -0.4f, -3.5f},
+        {-3.7f, 3.0f, -7.5f},
+        {3.3f, -2.0f, -2.5f},
+        {3.5f, 2.0f, -2.5f},
+        {3.5f, 0.2f, -1.5f},
+        {-3.3f, 1.0f, -1.5f}};
+
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -208,16 +192,6 @@ int main()
 
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
-
-    glBindVertexArray(0);
-
-    unsigned int lightVAO;
-    glGenVertexArrays(1, &lightVAO);
-    glBindVertexArray(lightVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(0);
 
     glBindVertexArray(0);
 
@@ -274,7 +248,7 @@ int main()
         76.8f};
 
     Light light = {
-        {0.0f, 0.0f, 0.0f},
+        {-1.0f, -0.6f, 1.0f},
         {0.2f, 0.2f, 0.2f},
         {0.5f, 0.5f, 0.5f},
         {1.0f, 1.0f, 1.0f},
@@ -296,7 +270,7 @@ int main()
     // Lighting Uniforms
     unsigned int matShininessLoc = glGetUniformLocation(shaderProgram, "material.shininess");
 
-    unsigned int lightPosLoc = glGetUniformLocation(shaderProgram, "light.position");
+    unsigned int lightDirLoc = glGetUniformLocation(shaderProgram, "light.direction");
     unsigned int lightAmbientLoc = glGetUniformLocation(shaderProgram, "light.ambient");
     unsigned int lightDiffuseLoc = glGetUniformLocation(shaderProgram, "light.diffuse");
     unsigned int lightSpecularLoc = glGetUniformLocation(shaderProgram, "light.specular");
@@ -305,7 +279,7 @@ int main()
 
     glUniform1f(matShininessLoc, material.shininess);
 
-    glUniform3fv(lightPosLoc, 1, light.position);
+    glUniform3fv(lightDirLoc, 1, light.direction);
     glUniform3fv(lightAmbientLoc, 1, light.ambient);
     glUniform3fv(lightDiffuseLoc, 1, light.diffuse);
     glUniform3fv(lightSpecularLoc, 1, light.specular);
@@ -313,42 +287,18 @@ int main()
     glUniform3fv(viewPosLoc, 1, viewPos);
     // ------------------------------------------------------------
 
-    // Projection and model matrix
+    // Projection and view matrix
     unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (float *)projection);
 
     unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (float *)view);
 
-    mat4 model;
-    glm_mat4_identity(model);
-    glm_translate(model, (vec3){0.0f, 0.0f, 0.0f});
-
     unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (float *)model);
     // ------------------------------------------------------------
-
-    // Sets UP the shader for the light in the scene
-    glUseProgram(lightShaderProgram);
-
-    projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (float *)projection);
-
-    viewLoc = glGetUniformLocation(shaderProgram, "view");
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (float *)view);
-
-    glm_mat4_identity(model);
-    glm_translate(model, light.position);
-    glm_scale(model, (vec3){0.2f, 0.2f, 0.2f});
-
-    modelLoc = glGetUniformLocation(shaderProgram, "model");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (float *)model);
-    // ------------------------------
 
     glEnable(GL_DEPTH_TEST);
 
-    float lightRotationH = 0;
-    float lightRotationV = 0;
     while (isRunning)
     {
         SDL_Event event;
@@ -386,73 +336,32 @@ int main()
             }
         }
 
-        SDL_PumpEvents();
-
-        int mod = 1;
-        int arrayLen;
-        const Uint8 *keyStates = SDL_GetKeyboardState(&arrayLen);
-        if (keyStates[SDL_SCANCODE_SPACE])
-        {
-            mod = 3;
-        }
-        if (keyStates[SDL_SCANCODE_LEFT])
-        {
-            lightRotationH -= 0.01 * mod;
-        }
-        else if (keyStates[SDL_SCANCODE_RIGHT])
-        {
-            lightRotationH += 0.01 * mod;
-        }
-
-        if (keyStates[SDL_SCANCODE_UP])
-        {
-            lightRotationV += 0.01 * mod;
-        }
-        else if (keyStates[SDL_SCANCODE_DOWN])
-        {
-            lightRotationV -= 0.01 * mod;
-        }
-
-        const float radiusH = 2.0f;
-        const float radiusV = 2.0f;
-        float lightX = sin(lightRotationH) * radiusH;
-        float lightY = sin(lightRotationV) * radiusV;
-        float lightZ = cos(lightRotationH) * radiusH;
-
-        light.position[0] = lightX;
-        light.position[1] = lightY;
-        light.position[2] = lightZ;
-
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
 
-        unsigned int lightPosLoc = glGetUniformLocation(shaderProgram, "light.position");
-        glUniform3fv(lightPosLoc, 1, light.position);
-
         glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-        // draw our first triangle
-        glUseProgram(lightShaderProgram);
-
-        glm_mat4_identity(model);
-        glm_translate(model, light.position);
-        glm_scale(model, (vec3){0.2f, 0.2f, 0.2f});
-
-        modelLoc = glGetUniformLocation(shaderProgram, "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (float *)model);
-
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, textures[0]);
-        // bind specular map
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, textures[1]);
 
-        glBindVertexArray(lightVAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        // glBindVertexArray(0); // no need to unbind it every time
+        for (unsigned int i = 0; i < 10; i++)
+        {
+            // calculate the model matrix for each object and pass it to shader before drawing
+            mat4 model;
+            glm_mat4_identity(model);
+
+            glm_translate(model, cubePositions[i]);
+
+            float angle = 20.0f * i + 20.0f;
+
+            glm_rotate(model, glm_rad(angle + (SDL_GetTicks64() / 100.0f) * (i + 1)), (vec3){1.0f, 0.3f, 0.5f});
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (float *)model);
+
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
         SDL_GL_SwapWindow(window);
     }
